@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface-canvas: #faf6ee;
+  --surface-card: #fffdf9;
+  --surface-muted: #f2eae0;
+  --border-subtle: #dcd2c4;
+  --border-ink: #231f1b;
+  --text-primary: #231f1b;
+  --text-secondary: #4a433b;
+  --text-muted: #5c5349;
+  --brand-primary: #4f46e5;
+  --brand-hover: #4338ca;
+  --status-free: #10b981;
+  --status-tentative: #f59e0b;
+  --status-danger: #b91c1c;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--surface-canvas);
+  --color-foreground: var(--text-primary);
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-card: var(--surface-card);
+  --color-surface-muted: var(--surface-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-ink: var(--border-ink);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-hover);
+  --color-status-free: var(--status-free);
+  --color-status-tentative: var(--status-tentative);
+  --color-status-danger: var(--status-danger);
+  --font-sans: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    color-scheme: light;
+    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background-color: var(--surface-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    overflow-wrap: break-word;
+  }
+
+  :where(a, code) {
+    overflow-wrap: anywhere;
+  }
+
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  [role="tab"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }

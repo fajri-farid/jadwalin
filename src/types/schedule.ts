@@ -10,6 +10,14 @@ export type ParticipantStatus = "pending" | "filled";
 
 export type ParticipantAuthType = "roster" | "guest" | "google";
 
+export type EventStatus = "open" | "closed";
+
+export interface AgreedTimeSlot {
+  columnKey: string;
+  startTime: string;
+  endTime: string;
+}
+
 /**
  * Peta slotKey ("YYYY-MM-DDTHH:mm" atau "DAY-HH:mm") ke status ketersediaan peserta.
  * Slot yang tidak tercatat di peta berarti belum tersedia / belum ditandai.
@@ -35,6 +43,9 @@ export interface ScheduleEvent extends SlotScheduleConfig {
   hostUid: string | null;
   hostName: string;
   createdAt: number;
+  status?: EventStatus;
+  closedAt?: number | null;
+  agreedSlot?: AgreedTimeSlot | null;
 }
 
 export interface RoomCodeRecord {

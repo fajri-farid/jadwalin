@@ -21,6 +21,7 @@ import {
   type EnsureUserProfileInput,
   type ScheduleRepository,
   type UpdateAvailabilityInput,
+  type UpdateEventStatusInput,
   type VerifyParticipantAccessInput,
 } from "@/lib/repositories/types";
 import {
@@ -41,9 +42,11 @@ import {
   normalizeParticipantName,
 } from "@/lib/utils/room-code";
 import type {
+  AgreedTimeSlot,
   AvailabilityMap,
   AvailabilityStatus,
   DateMode,
+  EventStatus,
   Participant,
   ParticipantAuthType,
   ParticipantStatus,
@@ -87,8 +90,19 @@ function asAvailabilityMap(value: unknown): AvailabilityMap {
   return result;
 }
 
+function parseAgreedSlot(value: unknown): AgreedTimeSlot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const obj = value as Record<string, unknown>;
+  const columnKey = asString(obj.columnKey);
+  const startTime = asString(obj.startTime);
+  const endTime = asString(obj.endTime);
+  if (!columnKey || !startTime || !endTime) return null;
+  return { columnKey, startTime, endTime };
+}
+
 function parseEventDoc(id: string, data: DocumentData): ScheduleEvent {
   const dateMode: DateMode = data.dateMode === "days_of_week" ? "days_of_week" : "specific_dates";
+  const status: EventStatus = data.status === "closed" ? "closed" : "open";
   return {
     id: asString(data.id, id),
     slug: asString(data.slug),
@@ -104,6 +118,10 @@ function parseEventDoc(id: string, data: DocumentData): ScheduleEvent {
     hostUid: asNullableString(data.hostUid),
     hostName: asString(data.hostName),
     createdAt: asNumber(data.createdAt, 0),
+    status,
+    closedAt:
+      typeof data.closedAt === "number" && Number.isFinite(data.closedAt) ? data.closedAt : null,
+    agreedSlot: parseAgreedSlot(data.agreedSlot),
   };
 }
 
@@ -200,6 +218,9 @@ export class FirestoreScheduleRepository implements ScheduleRepository {
         hostUid: normalized.hostUid,
         hostName: normalized.hostName,
         createdAt: now,
+        status: "open",
+        closedAt: null,
+        agreedSlot: null,
       };
 
       const roomCodeRecord: RoomCodeRecord = {
@@ -298,6 +319,53 @@ export class FirestoreScheduleRepository implements ScheduleRepository {
 
     const snap = await getDoc(doc(this.db, "events", trimmed));
     return snap.exists() ? parseEventDoc(snap.id, snap.data()) : null;
+  }
+
+  subscribeEvent(
+    eventId: string,
+    onUpdate: (event: ScheduleEvent | null) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    const ref = doc(this.db, "events", eventId);
+    return onSnapshot(
+      ref,
+      (snapshot) => {
+        onUpdate(snapshot.exists() ? parseEventDoc(snapshot.id, snapshot.data()) : null);
+      },
+      (error) => {
+        if (onError) {
+          onError(error);
+        }
+      }
+    );
+  }
+
+  async updateEventStatus(input: UpdateEventStatusInput): Promise<ScheduleEvent> {
+    const eventRef = doc(this.db, "events", input.eventId);
+    return runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(eventRef);
+      if (!snap.exists()) {
+        throw new RepositoryError("ROOM_NOT_FOUND", "Room jadwal tidak ditemukan.");
+      }
+
+      const existing = parseEventDoc(snap.id, snap.data());
+      if (!existing.hostUid || existing.hostUid !== input.hostUid.trim()) {
+        throw new RepositoryError(
+          "AUTH_REQUIRED",
+          "Hanya pembuat room yang dapat menutup atau membuka kembali room ini."
+        );
+      }
+
+      const next: ScheduleEvent = {
+        ...existing,
+        status: input.status,
+        closedAt: input.status === "closed" ? Date.now() : null,
+        agreedSlot: input.status === "closed" ? (input.agreedSlot ?? null) : null,
+      };
+
+      tx.set(eventRef, next);
+      return next;
+    });
   }
 
   async listParticipants(eventId: string): Promise<Participant[]> {

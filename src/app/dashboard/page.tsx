@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { DashboardPreview } from "@/components/dashboard/dashboard-preview";
+import { DashboardWorkspace } from "@/components/dashboard/dashboard-workspace";
 
 export const metadata: Metadata = {
   title: "Dashboard",
-  description: "Kelola riwayat room penjadwalan kelompok kamu di Jadwalin.",
+  description: "Kelola riwayat room penjadwalan kelompok dan Jadwal Rutinku di Jadwalin.",
 };
 
 export default function DashboardPage() {
-  return <DashboardPreview />;
+  return <DashboardWorkspace />;
 }

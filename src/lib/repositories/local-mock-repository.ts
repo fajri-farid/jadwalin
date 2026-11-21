@@ -14,6 +14,7 @@ import {
   type EnsureUserProfileInput,
   type ScheduleRepository,
   type UpdateAvailabilityInput,
+  type UpdateEventStatusInput,
   type VerifyParticipantAccessInput,
 } from "@/lib/repositories/types";
 import {
@@ -39,6 +40,7 @@ import type {
 export const LOCAL_MOCK_DB_STORAGE_KEY = "jadwalin:v1:local-mock-db";
 
 type ParticipantsListener = (participants: Participant[]) => void;
+type EventListener = (event: ScheduleEvent | null) => void;
 
 interface MockDatabaseState {
   events: Record<string, ScheduleEvent>;
@@ -67,6 +69,9 @@ function cloneEvent(event: ScheduleEvent): ScheduleEvent {
   return {
     ...event,
     dates: [...event.dates],
+    status: event.status ?? "open",
+    closedAt: event.closedAt ?? null,
+    agreedSlot: event.agreedSlot ? { ...event.agreedSlot } : null,
   };
 }
 
@@ -106,6 +111,7 @@ export class LocalMockScheduleRepository implements ScheduleRepository {
   private readonly explicitStorage: StorageLike | null | undefined;
   private state: MockDatabaseState;
   private readonly listeners = new Map<string, Set<ParticipantsListener>>();
+  private readonly eventListeners = new Map<string, Set<EventListener>>();
 
   constructor(options?: { storage?: StorageLike | null }) {
     this.explicitStorage = options?.storage;
@@ -184,6 +190,16 @@ export class LocalMockScheduleRepository implements ScheduleRepository {
     }
   }
 
+  private notifyEvent(eventId: string): void {
+    const subs = this.eventListeners.get(eventId);
+    if (!subs || subs.size === 0) return;
+
+    const current = this.state.events[eventId];
+    for (const listener of subs) {
+      listener(current ? cloneEvent(current) : null);
+    }
+  }
+
   private allocateUniqueRoomCode(generator?: (attempt: number) => string): string {
     for (let attempt = 0; attempt < MAX_ROOM_CODE_ATTEMPTS; attempt += 1) {
       const candidate = generator ? generator(attempt) : generateRoomCode();
@@ -232,6 +248,9 @@ export class LocalMockScheduleRepository implements ScheduleRepository {
       hostUid: normalized.hostUid,
       hostName: normalized.hostName,
       createdAt: now,
+      status: "open",
+      closedAt: null,
+      agreedSlot: null,
     };
 
     const roomCodeRecord: RoomCodeRecord = {
@@ -304,6 +323,64 @@ export class LocalMockScheduleRepository implements ScheduleRepository {
     this.syncFromStorage();
     const found = this.state.events[eventId];
     return found ? cloneEvent(found) : null;
+  }
+
+  subscribeEvent(
+    eventId: string,
+    onUpdate: (event: ScheduleEvent | null) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    try {
+      this.syncFromStorage();
+      let set = this.eventListeners.get(eventId);
+      if (!set) {
+        set = new Set();
+        this.eventListeners.set(eventId, set);
+      }
+      set.add(onUpdate);
+      const current = this.state.events[eventId];
+      onUpdate(current ? cloneEvent(current) : null);
+    } catch (error) {
+      if (onError) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    return () => {
+      const current = this.eventListeners.get(eventId);
+      if (!current) return;
+      current.delete(onUpdate);
+      if (current.size === 0) {
+        this.eventListeners.delete(eventId);
+      }
+    };
+  }
+
+  async updateEventStatus(input: UpdateEventStatusInput): Promise<ScheduleEvent> {
+    this.syncFromStorage();
+    const existing = this.state.events[input.eventId];
+    if (!existing) {
+      throw new RepositoryError("ROOM_NOT_FOUND", "Room jadwal tidak ditemukan.");
+    }
+
+    if (!existing.hostUid || existing.hostUid !== input.hostUid.trim()) {
+      throw new RepositoryError(
+        "AUTH_REQUIRED",
+        "Hanya pembuat room yang dapat menutup atau membuka kembali room ini."
+      );
+    }
+
+    const updated: ScheduleEvent = {
+      ...existing,
+      status: input.status,
+      closedAt: input.status === "closed" ? Date.now() : null,
+      agreedSlot: input.status === "closed" ? (input.agreedSlot ?? null) : null,
+    };
+
+    this.state.events[input.eventId] = updated;
+    this.persistState();
+    this.notifyEvent(input.eventId);
+    return cloneEvent(updated);
   }
 
   async listParticipants(eventId: string): Promise<Participant[]> {

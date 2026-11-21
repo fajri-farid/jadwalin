@@ -134,8 +134,10 @@ export function validateCreateRoomDraft(draft: CreateRoomDraft): CreateRoomValid
     errors.hostName = "Namamu maksimal 50 karakter.";
   }
 
-  if (description.length > 300) {
-    errors.description = "Catatan opsional maksimal 300 karakter.";
+  if (description.length < 3) {
+    errors.description = "Deskripsi singkat wajib diisi (minimal 3 karakter).";
+  } else if (description.length > 300) {
+    errors.description = "Deskripsi maksimal 300 karakter.";
   }
 
   const validDates = normalizeColumns(draft.dateMode, draft.dates);

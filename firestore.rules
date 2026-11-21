@@ -43,6 +43,7 @@ service cloud.firestore {
         && request.resource.data.title.size() >= 3
         && request.resource.data.title.size() <= 100
         && request.resource.data.description is string
+        && request.resource.data.description.size() >= 3
         && request.resource.data.description.size() <= 300
         && request.resource.data.dateMode in ['specific_dates', 'days_of_week']
         && request.resource.data.dates is list

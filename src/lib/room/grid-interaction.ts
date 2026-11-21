@@ -1,7 +1,13 @@
 import { computeHeatLevel } from "@/lib/engine/heatmap";
 import type { AuthUser } from "@/lib/firebase/auth";
 import type { RoomSessionRecord } from "@/lib/storage/room-sessions";
-import type { AvailabilityMap, HeatmapLevel, PaintBrushMode, Participant } from "@/types/schedule";
+import type {
+  AvailabilityMap,
+  BestTimeWindow,
+  HeatmapLevel,
+  PaintBrushMode,
+  Participant,
+} from "@/types/schedule";
 
 export interface AvailabilityStats {
   freeCount: number;
@@ -187,6 +193,35 @@ export function computeDisplayHeatLevel(
   if (totalParticipantsCount <= 0 || rawScore <= 0) return 0;
   const ratio = Number((rawScore / totalParticipantsCount).toFixed(4));
   return computeHeatLevel(rawScore, ratio, freeCount, totalParticipantsCount);
+}
+
+/**
+ * Menyaring daftar rekomendasi agar masuk akal bagi kelompok:
+ * - Opsi #1 (terbaik) selalu dipertahankan selama ada minimal 1 slot cocok.
+ * - Opsi alternatif (#2, #3, dst.) hanya ditampilkan jika minimal 50% anggota bisa/diusahakan
+ *   dan melibatkan minimal 2 orang (agar tidak menyarankan jam solo 1 orang sebagai opsi tambahan).
+ */
+export function filterQualifiedBestWindows(
+  bestWindows: readonly BestTimeWindow[],
+  totalParticipantsCount: number
+): BestTimeWindow[] {
+  if (bestWindows.length === 0) return [];
+
+  const denominator = Math.max(totalParticipantsCount, 1);
+  const qualified: BestTimeWindow[] = [bestWindows[0]];
+
+  for (let i = 1; i < bestWindows.length; i += 1) {
+    const candidate = bestWindows[i];
+    const attending = candidate.freeCount + candidate.tentativeCount;
+    const meetsMajority = attending / denominator >= 0.5;
+    const meetsGroupMinimum = denominator >= 2 ? attending >= 2 : attending >= 1;
+
+    if (meetsMajority && meetsGroupMinimum) {
+      qualified.push(candidate);
+    }
+  }
+
+  return qualified;
 }
 
 /**

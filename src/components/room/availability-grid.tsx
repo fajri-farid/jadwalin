@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
-  ArrowUpDown,
   CalendarSync,
   Check,
   Clock,
@@ -51,6 +51,7 @@ interface AvailabilityGridProps {
   canEdit: boolean;
   isDirty: boolean;
   isSaving: boolean;
+  isSignedIn: boolean;
   hasRoutineTemplate: boolean;
   onChangeBrush: (brush: PaintBrushMode) => void;
   onChangeDraft: (updater: (prev: AvailabilityMap) => AvailabilityMap) => void;
@@ -100,6 +101,7 @@ export function AvailabilityGrid({
   canEdit,
   isDirty,
   isSaving,
+  isSignedIn,
   hasRoutineTemplate,
   onChangeBrush,
   onChangeDraft,
@@ -315,8 +317,16 @@ export function AvailabilityGrid({
                 className="wp-btn wp-btn-soft !min-h-10 !px-3 !text-xs"
               >
                 <CalendarSync className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Pakai Jadwal Rutinku</span>
+                <span>Terapkan Jadwal Rutinku</span>
               </button>
+            ) : isSignedIn ? (
+              <Link
+                href="/dashboard#jadwal-rutinku"
+                className="wp-btn wp-btn-secondary !min-h-10 !px-3 !text-xs"
+              >
+                <CalendarSync className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Atur Jadwal Rutinku</span>
+              </Link>
             ) : null}
 
             {markedCount > 0 ? (
@@ -393,9 +403,8 @@ export function AvailabilityGrid({
             className="wp-safe-scroll-zone sticky left-0 z-20 grid shrink-0 gap-1 bg-surface-card pr-2"
             aria-hidden="true"
           >
-            <div className="flex h-11 items-center justify-center gap-1 rounded-lg border-2 border-border-subtle bg-surface-muted px-2 font-mono text-[11px] font-bold text-text-secondary">
-              <ArrowUpDown className="h-3.5 w-3.5 shrink-0" />
-              <span className="hidden sm:inline">Jam</span>
+            <div className="flex h-11 items-center justify-end pr-1 font-mono text-[11px] font-bold uppercase tracking-wider text-text-muted">
+              Jam
             </div>
 
             {heatmap.timeSlots.map((time) => {

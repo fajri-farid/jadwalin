@@ -6,12 +6,14 @@ import { CalendarPlus, KeyRound, LayoutGrid, Paintbrush } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { AvailabilityGrid, type GridViewMode } from "@/components/room/availability-grid";
 import { BestTimesPanel } from "@/components/room/best-times-panel";
+import { CloseRoomDialog } from "@/components/room/close-room-dialog";
 import {
   IdentityPickerModal,
   type IdentitySelectionPayload,
 } from "@/components/room/identity-picker-modal";
 import { RoomHeaderBar } from "@/components/room/room-header-bar";
 import { SetPinDialog } from "@/components/room/set-pin-dialog";
+import { ShareWhatsAppModal } from "@/components/room/share-wa-modal";
 import { SlotDetailDialog } from "@/components/room/slot-detail-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast-provider";
@@ -22,11 +24,14 @@ import {
   areAvailabilityMapsEqual,
   computeTeammateSlotHints,
   countAvailabilityStats,
+  filterQualifiedBestWindows,
   resolveAutoSessionParticipant,
 } from "@/lib/room/grid-interaction";
+import { getRoomEffectiveStatus } from "@/lib/room/room-lifecycle";
 import { clearRoomSession, getRoomSession, saveRoomSession } from "@/lib/storage/room-sessions";
 import { formatRoomCodeDisplay } from "@/lib/utils/room-code";
 import type {
+  AgreedTimeSlot,
   AvailabilityMap,
   BestTimeWindow,
   PaintBrushMode,
@@ -59,6 +64,9 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
 
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [setPinOpen, setSetPinOpen] = useState(false);
+  const [shareWaOpen, setShareWaOpen] = useState(false);
+  const [closeRoomOpen, setCloseRoomOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [inspectedCell, setInspectedCell] = useState<SlotHeatmapCell | null>(null);
   const [selectedWindowId, setSelectedWindowId] = useState<string | null>(null);
@@ -97,13 +105,20 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
     };
   }, [slug]);
 
-  // 2. Berlangganan subkoleksi participants secara real-time (onSnapshot + cleanup wajib)
+  const eventId = event?.id ?? null;
+
+  // 2. Berlangganan metadata room & subkoleksi participants secara real-time (onSnapshot + cleanup)
   useEffect(() => {
-    if (!event) return;
+    if (!eventId) return;
 
     const repo = getScheduleRepository();
-    const unsubscribe = repo.subscribeEventParticipants(
-      event.id,
+    const unsubEvent = repo.subscribeEvent(eventId, (nextEvent) => {
+      if (nextEvent) {
+        setEvent(nextEvent);
+      }
+    });
+    const unsubParticipants = repo.subscribeEventParticipants(
+      eventId,
       (nextList) => {
         setParticipants(nextList);
         setHasLoadedParticipants(true);
@@ -114,9 +129,10 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
     );
 
     return () => {
-      unsubscribe();
+      unsubEvent();
+      unsubParticipants();
     };
-  }, [event]);
+  }, [eventId]);
 
   // 3. Muat template Jadwal Rutinku bagi akun Google yang sedang login
   useEffect(() => {
@@ -164,7 +180,10 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
         if (savedSession) {
           clearRoomSession(event.id);
         }
-        setIdentityModalOpen(true);
+        const statusNow = getRoomEffectiveStatus(event);
+        if (!statusNow.isClosed) {
+          setIdentityModalOpen(true);
+        }
       }
     });
   }, [event, hasLoadedParticipants, authLoading, participants, user]);
@@ -192,7 +211,15 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
         bestWindows: [] as BestTimeWindow[],
       };
     }
-    return computeBestTimeWindows(event, participants, { limit: 5 });
+    const computed = computeBestTimeWindows(event, participants, { limit: 5 });
+    const totalMembers = Math.max(
+      computed.heatmap.totalParticipantsCount,
+      computed.heatmap.filledCount
+    );
+    return {
+      heatmap: computed.heatmap,
+      bestWindows: filterQualifiedBestWindows(computed.bestWindows, totalMembers),
+    };
   }, [event, participants]);
 
   const highlightedSlotKeys = useMemo(() => {
@@ -215,6 +242,23 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
     () => computeTeammateSlotHints(participants, activeParticipantId),
     [participants, activeParticipantId]
   );
+
+  const effectiveStatus = useMemo(
+    () =>
+      event
+        ? getRoomEffectiveStatus(event)
+        : {
+            state: "open" as const,
+            isClosed: false,
+            isManualClosed: false,
+            isAutoExpired: false,
+            hasAgreedSlot: false,
+          },
+    [event]
+  );
+
+  const isHost = Boolean(user && event?.hostUid && user.uid === event.hostUid);
+  const effectiveViewMode: GridViewMode = effectiveStatus.isClosed ? "heatmap" : viewMode;
 
   const applySelectedIdentity = useCallback(
     (payload: IdentitySelectionPayload) => {
@@ -471,6 +515,63 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
     setViewMode("heatmap");
   };
 
+  const handleCloseRoom = async (agreedSlot: AgreedTimeSlot | null) => {
+    if (!event || !user) return;
+    setIsUpdatingStatus(true);
+    try {
+      const updated = await getScheduleRepository().updateEventStatus({
+        eventId: event.id,
+        hostUid: user.uid,
+        status: "closed",
+        agreedSlot,
+      });
+      setEvent(updated);
+      setViewMode("heatmap");
+      showToast({
+        title: agreedSlot ? "Jadwal Dikunci" : "Room Ditutup",
+        message: agreedSlot
+          ? "Jadwal kesepakatan aktif dan siap dibagikan ke grup WA."
+          : "Pengisian jadwal untuk room ini sudah ditutup.",
+        variant: "success",
+      });
+    } catch (err) {
+      showToast({
+        title: "Belum Bisa Menutup Room",
+        message: err instanceof Error ? err.message : "Coba ulangi sebentar lagi.",
+        variant: "danger",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleReopenRoom = async () => {
+    if (!event || !user) return;
+    setIsUpdatingStatus(true);
+    try {
+      const updated = await getScheduleRepository().updateEventStatus({
+        eventId: event.id,
+        hostUid: user.uid,
+        status: "open",
+        agreedSlot: null,
+      });
+      setEvent(updated);
+      showToast({
+        title: "Room Dibuka Kembali",
+        message: "Anggota kelompok kini bisa mengisi atau mengubah jadwal lagi.",
+        variant: "info",
+      });
+    } catch (err) {
+      showToast({
+        title: "Belum Bisa Membuka Room",
+        message: err instanceof Error ? err.message : "Coba ulangi sebentar lagi.",
+        variant: "danger",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   if (isLoadingEvent) {
     return (
       <div className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-8 sm:px-6">
@@ -512,7 +613,7 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
   return (
     <div
       className={`mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 sm:px-6 sm:py-7 ${
-        viewMode === "fill" ? "pb-32 sm:pb-24" : "pb-10"
+        effectiveViewMode === "fill" ? "pb-32 sm:pb-24" : "pb-10"
       }`}
     >
       <RoomHeaderBar
@@ -520,90 +621,99 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
         participants={participants}
         filledCount={heatmap.filledCount}
         activeParticipant={activeParticipant}
+        effectiveStatus={effectiveStatus}
+        isHost={isHost}
+        isUpdatingStatus={isUpdatingStatus}
         onCopyCode={handleCopyCode}
         onCopyLink={handleCopyLink}
+        onOpenShareWa={() => setShareWaOpen(true)}
         onOpenIdentityPicker={() => setIdentityModalOpen(true)}
         onOpenSetPin={() => setSetPinOpen(true)}
+        onOpenCloseRoom={() => setCloseRoomOpen(true)}
+        onReopenRoom={handleReopenRoom}
       />
 
       {/* Tab Switcher: Isi Jadwalku vs Hasil Grup (Heatmap) */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="tablist"
-          aria-label="Tampilan jadwal room"
-          className="inline-flex gap-1.5 rounded-xl border-2 border-border-ink bg-surface-card p-1 shadow-[3px_3px_0_var(--border-ink)]"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "fill"}
-            onClick={() => setViewMode("fill")}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors ${
-              viewMode === "fill"
-                ? "bg-brand text-white"
-                : "text-text-secondary hover:bg-surface-muted hover:text-text-primary"
-            }`}
+      {!effectiveStatus.isClosed ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div
+            role="tablist"
+            aria-label="Tampilan jadwal room"
+            className="inline-flex gap-1.5 rounded-xl border-2 border-border-ink bg-surface-card p-1 shadow-[3px_3px_0_var(--border-ink)]"
           >
-            <Paintbrush className="h-4 w-4" aria-hidden="true" />
-            <span>Isi Jadwalku</span>
-            {activeParticipant && draftStats.totalMarked > 0 ? (
-              <span
-                className={`rounded-full px-2 py-0.5 font-mono text-xs font-extrabold ${
-                  viewMode === "fill"
-                    ? "bg-white/20 text-white"
-                    : "bg-status-free-bg text-status-free-text"
-                }`}
-              >
-                {draftStats.totalMarked}
-              </span>
-            ) : null}
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === "heatmap"}
-            onClick={() => setViewMode("heatmap")}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors ${
-              viewMode === "heatmap"
-                ? "bg-brand text-white"
-                : "text-text-secondary hover:bg-surface-muted hover:text-text-primary"
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4" aria-hidden="true" />
-            <span>Hasil Grup</span>
-            <span
-              className={`rounded-full px-2 py-0.5 font-mono text-xs font-extrabold ${
-                viewMode === "heatmap"
-                  ? "bg-white/20 text-white"
-                  : "bg-surface-muted text-text-secondary"
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveViewMode === "fill"}
+              onClick={() => setViewMode("fill")}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors ${
+                effectiveViewMode === "fill"
+                  ? "bg-brand text-white"
+                  : "text-text-secondary hover:bg-surface-muted hover:text-text-primary"
               }`}
             >
-              {heatmap.filledCount}
-            </span>
-          </button>
-        </div>
+              <Paintbrush className="h-4 w-4" aria-hidden="true" />
+              <span>Isi Jadwalku</span>
+              {activeParticipant && draftStats.totalMarked > 0 ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-xs font-extrabold ${
+                    effectiveViewMode === "fill"
+                      ? "bg-white/20 text-white"
+                      : "bg-status-free-bg text-status-free-text"
+                  }`}
+                >
+                  {draftStats.totalMarked}
+                </span>
+              ) : null}
+            </button>
 
-        {activeParticipant && isDirty ? (
-          <span className="inline-flex items-center rounded-full border-2 border-status-tentative-border bg-status-tentative-bg px-3 py-1 text-xs font-bold text-status-tentative-text">
-            Perubahan belum disimpan
-          </span>
-        ) : null}
-      </div>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveViewMode === "heatmap"}
+              onClick={() => setViewMode("heatmap")}
+              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-bold transition-colors ${
+                effectiveViewMode === "heatmap"
+                  ? "bg-brand text-white"
+                  : "text-text-secondary hover:bg-surface-muted hover:text-text-primary"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+              <span>Hasil Grup</span>
+              <span
+                className={`rounded-full px-2 py-0.5 font-mono text-xs font-extrabold ${
+                  effectiveViewMode === "heatmap"
+                    ? "bg-white/20 text-white"
+                    : "bg-surface-muted text-text-secondary"
+                }`}
+              >
+                {heatmap.filledCount}
+              </span>
+            </button>
+          </div>
+
+          {activeParticipant && isDirty ? (
+            <span className="inline-flex items-center rounded-full border-2 border-status-tentative-border bg-status-tentative-bg px-3 py-1 text-xs font-bold text-status-tentative-text">
+              Perubahan belum disimpan
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Layout 1 Kolom Mobile -> 2 Kolom Desktop (Grid + Top Rekomendasi) */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <AvailabilityGrid
           event={event}
-          mode={viewMode}
+          mode={effectiveViewMode}
           heatmap={heatmap}
           teammateHints={teammateHints}
           draftAvailabilities={draftAvailabilities}
           activeBrush={activeBrush}
           highlightedSlotKeys={highlightedSlotKeys}
-          canEdit={Boolean(activeParticipant)}
+          canEdit={!effectiveStatus.isClosed && Boolean(activeParticipant)}
           isDirty={isDirty}
           isSaving={isSaving}
+          isSignedIn={Boolean(user)}
           hasRoutineTemplate={hasRoutineTemplate}
           onChangeBrush={setActiveBrush}
           onChangeDraft={setDraftAvailabilities}
@@ -622,6 +732,7 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
             totalParticipantsCount={heatmap.totalParticipantsCount}
             selectedWindowId={selectedWindowId}
             onSelectWindow={handleSelectBestWindow}
+            onOpenShareWa={() => setShareWaOpen(true)}
           />
         </aside>
       </div>
@@ -649,6 +760,28 @@ export function RoomWorkspace({ slug }: RoomWorkspaceProps) {
           onSavePin={handleSaveNewPin}
         />
       ) : null}
+
+      {/* Modal Kunci Jadwal & Tutup Room (khusus Host) */}
+      {isHost ? (
+        <CloseRoomDialog
+          open={closeRoomOpen}
+          onOpenChange={setCloseRoomOpen}
+          roomTitle={event.title}
+          dateMode={event.dateMode}
+          bestWindows={bestWindows}
+          totalMembers={Math.max(heatmap.totalParticipantsCount, heatmap.filledCount)}
+          onConfirmClose={handleCloseRoom}
+        />
+      ) : null}
+
+      {/* Modal Draf Pengumuman WhatsApp */}
+      <ShareWhatsAppModal
+        open={shareWaOpen}
+        onOpenChange={setShareWaOpen}
+        event={event}
+        heatmap={heatmap}
+        bestWindows={bestWindows}
+      />
 
       {/* Dialog Rincian Peserta per Slot Heatmap */}
       <SlotDetailDialog

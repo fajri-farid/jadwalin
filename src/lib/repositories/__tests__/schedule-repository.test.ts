@@ -67,6 +67,7 @@ describe("LocalMockScheduleRepository", () => {
     await expect(
       repo.createEvent({
         title: "Room Tanpa Login",
+        description: "Rapat singkat di lab",
         dateMode: "days_of_week",
         dates: ["MON"],
         startHour: 9,
@@ -83,6 +84,7 @@ describe("LocalMockScheduleRepository", () => {
 
     await repo.createEvent({
       title: "Room Pertama",
+      description: "Diskusi pertama tim",
       dateMode: "days_of_week",
       dates: ["MON", "WED"],
       startHour: 9,
@@ -95,6 +97,7 @@ describe("LocalMockScheduleRepository", () => {
 
     const second = await repo.createEvent({
       title: "Room Kedua",
+      description: "Diskusi kedua tim",
       dateMode: "days_of_week",
       dates: ["MON", "WED"],
       startHour: 9,
@@ -109,6 +112,7 @@ describe("LocalMockScheduleRepository", () => {
     await expect(
       repo.createEvent({
         title: "Room Bentrok Terus",
+        description: "Diskusi uji bentrok kode",
         dateMode: "days_of_week",
         dates: ["MON"],
         startHour: 9,
@@ -125,6 +129,7 @@ describe("LocalMockScheduleRepository", () => {
     const repo = createLocalMockScheduleRepository({ storage: null });
     const created = await repo.createEvent({
       title: "Rapat HIMA",
+      description: "Koordinasi acara proker",
       dateMode: "specific_dates",
       dates: ["2026-11-23"],
       startHour: 10,
@@ -197,6 +202,7 @@ describe("LocalMockScheduleRepository", () => {
     const repo = createLocalMockScheduleRepository({ storage: null });
     const created = await repo.createEvent({
       title: "Rapat Proyek",
+      description: "Pembagian modul tugas",
       dateMode: "days_of_week",
       dates: ["MON", "TUE"],
       startHour: 8,
@@ -239,6 +245,7 @@ describe("LocalMockScheduleRepository", () => {
     const repo = createLocalMockScheduleRepository({ storage: null });
     const created = await repo.createEvent({
       title: "Kerja Kelompok Paralel",
+      description: "Sinkronisasi paralel anggota",
       dateMode: "days_of_week",
       dates: ["FRI"],
       startHour: 13,

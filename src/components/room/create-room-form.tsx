@@ -64,6 +64,7 @@ export function CreateRoomForm() {
   const uid = rawId.replace(/[^a-zA-Z0-9_-]/g, "");
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const hostInputRef = useRef<HTMLInputElement | null>(null);
+  const descInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const todayIso = useSyncExternalStore(emptySubscribe, getClientTodayIso, getServerTodayIso);
   const timezone = useSyncExternalStore(emptySubscribe, getClientTimezone, getServerTimezone);
@@ -235,6 +236,8 @@ export function CreateRoomForm() {
         titleInputRef.current?.focus();
       } else if (currentErrors.hostName) {
         hostInputRef.current?.focus();
+      } else if (currentErrors.description) {
+        descInputRef.current?.focus();
       }
       return;
     }
@@ -369,19 +372,22 @@ export function CreateRoomForm() {
           </div>
         </div>
 
-        {/* Catatan Opsional */}
+        {/* Deskripsi Singkat (Wajib) */}
         <div className="grid gap-1.5">
           <label htmlFor={`desc-${uid}`} className="text-sm font-bold text-text-primary">
-            Catatan Singkat <span className="font-normal text-text-muted">(opsional)</span>
+            Deskripsi Singkat
           </label>
           <span id={`desc-hint-${uid}`} className="text-xs text-text-muted">
-            Link Google Meet, lokasi ketemu, atau agenda singkat.
+            Agenda singkat, lokasi ketemu, atau link rapat (3–300 huruf).
           </span>
           <textarea
+            ref={descInputRef}
             id={`desc-${uid}`}
             name="description"
+            required
+            minLength={3}
             maxLength={300}
-            placeholder="Mis. Kumpul di perpustakaan lantai 2 atau online via Meet."
+            placeholder="Mis. Kumpul di perpustakaan lantai 2 atau online via Google Meet."
             value={description}
             onChange={(event) => {
               setDescription(event.target.value);
@@ -396,7 +402,7 @@ export function CreateRoomForm() {
           />
           <div id={`desc-err-${uid}`} className="wp-error-msg">
             <AlertCircle className="h-4 w-4 shrink-0" role="img" aria-label="Error" />
-            <span>{errors.description ?? "Catatan terlalu panjang."}</span>
+            <span>{errors.description ?? "Deskripsi minimal 3 karakter."}</span>
           </div>
         </div>
 

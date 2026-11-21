@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, Sparkles, Users } from "lucide-react";
+import { Check, Clock, Share2, Sparkles, Users } from "lucide-react";
 import { formatColumnLabel, formatDurationIndonesian, formatTimeRange } from "@/lib/engine/slots";
 import type { BestTimeWindow, DateMode } from "@/types/schedule";
 
@@ -11,6 +11,7 @@ interface BestTimesPanelProps {
   totalParticipantsCount: number;
   selectedWindowId: string | null;
   onSelectWindow: (windowItem: BestTimeWindow) => void;
+  onOpenShareWa: () => void;
 }
 
 export function BestTimesPanel({
@@ -20,6 +21,7 @@ export function BestTimesPanel({
   totalParticipantsCount,
   selectedWindowId,
   onSelectWindow,
+  onOpenShareWa,
 }: BestTimesPanelProps) {
   const totalMembers = Math.max(totalParticipantsCount, filledCount);
 
@@ -197,6 +199,11 @@ export function BestTimesPanel({
           })}
         </div>
       )}
+
+      <button type="button" onClick={onOpenShareWa} className="wp-btn wp-btn-free w-full !min-h-11">
+        <Share2 className="h-4 w-4" aria-hidden="true" />
+        <span>Salin Draf Pengumuman WA</span>
+      </button>
     </section>
   );
 }

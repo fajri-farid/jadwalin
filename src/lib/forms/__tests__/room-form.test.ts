@@ -50,6 +50,7 @@ describe("Room Form & Calendar Helpers", () => {
     });
 
     expect(invalid.title).toBeDefined();
+    expect(invalid.description).toBeDefined();
     expect(invalid.hostName).toBeDefined();
     expect(invalid.dates).toBeDefined();
     expect(invalid.hours).toBeDefined();

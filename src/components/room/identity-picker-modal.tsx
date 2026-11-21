@@ -179,7 +179,7 @@ export function IdentityPickerModal({
       }
 
       setErrorMsg(
-        `Nama "${member.name}" terikat ke akun Google pemiliknya. Masuk dengan akun Google tersebut untuk mengeditnya.`
+        `Jadwal atas nama "${member.name}" dilindungi pemiliknya. Jika ini jadwalmu, masuk dengan akun yang kamu pakai sebelumnya untuk mengubahnya.`
       );
       return;
     }

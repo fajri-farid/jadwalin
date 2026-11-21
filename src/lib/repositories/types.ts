@@ -1,6 +1,8 @@
 import type {
+  AgreedTimeSlot,
   AvailabilityMap,
   DateMode,
+  EventStatus,
   Participant,
   RoomCodeRecord,
   ScheduleEvent,
@@ -11,6 +13,7 @@ import type {
 export type RepositoryErrorCode =
   | "AUTH_REQUIRED"
   | "ROOM_NOT_FOUND"
+  | "ROOM_CLOSED"
   | "INVALID_ROOM_CODE"
   | "ROOM_CODE_COLLISION"
   | "PARTICIPANT_NOT_FOUND"
@@ -35,7 +38,7 @@ export function buildParticipantPinSalt(eventId: string, participantId: string):
 
 export interface CreateEventInput {
   title: string;
-  description?: string;
+  description: string;
   dateMode: DateMode;
   dates: string[];
   startHour: number;
@@ -46,6 +49,13 @@ export interface CreateEventInput {
   rosterNames?: string[];
   /** Dipakai di pengujian deterministik untuk memverifikasi penanganan bentrok kode 6 digit. */
   roomCodeGenerator?: (attempt: number) => string;
+}
+
+export interface UpdateEventStatusInput {
+  eventId: string;
+  hostUid: string;
+  status: EventStatus;
+  agreedSlot?: AgreedTimeSlot | null;
 }
 
 export interface CreateEventResult {
@@ -93,6 +103,12 @@ export interface ScheduleRepository {
   resolveRoomCode(code: string): Promise<RoomCodeRecord | null>;
   getEventBySlug(slug: string): Promise<ScheduleEvent | null>;
   getEventById(eventId: string): Promise<ScheduleEvent | null>;
+  subscribeEvent(
+    eventId: string,
+    onUpdate: (event: ScheduleEvent | null) => void,
+    onError?: (error: Error) => void
+  ): () => void;
+  updateEventStatus(input: UpdateEventStatusInput): Promise<ScheduleEvent>;
   listParticipants(eventId: string): Promise<Participant[]>;
   subscribeEventParticipants(
     eventId: string,

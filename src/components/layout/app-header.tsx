@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useRef, type CSSProperties } from "react";
-import { CalendarPlus, KeyRound, LayoutGrid, LogIn, LogOut, Menu, UserCheck } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  CalendarPlus,
+  KeyRound,
+  LayoutGrid,
+  LogIn,
+  LogOut,
+  Menu,
+  UserCheck,
+  X,
+} from "lucide-react";
 import { JadwalinLogo } from "@/components/brand/jadwalin-logo";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/toast-provider";
@@ -20,26 +29,106 @@ export function AppHeader() {
   const pathname = usePathname();
   const { user, isLoading, signIn, signOut } = useAuth();
   const { showToast } = useToast();
+
   const rawId = useId();
-  const menuId = `mobile-nav-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const menuRef = useRef<HTMLUListElement | null>(null);
+  const drawerId = `mobile-drawer-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const drawerRef = useRef<HTMLDialogElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const visibleNavItems = user ? HOST_NAV_ITEMS : GUEST_NAV_ITEMS;
 
-  const closeMobileMenu = () => {
-    const menuEl = menuRef.current as (HTMLUListElement & { hidePopover?: () => void }) | null;
-    if (menuEl && typeof menuEl.hidePopover === "function") {
-      try {
-        if (menuEl.matches(":popover-open")) {
-          menuEl.hidePopover();
+  const openDrawer = useCallback(() => {
+    const drawer = drawerRef.current;
+    const scroller = scrollerRef.current;
+    if (!drawer || !scroller || drawer.open) return;
+
+    drawer.showModal();
+    scroller.scrollTo({ left: scroller.scrollWidth, behavior: "auto" });
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    const drawer = drawerRef.current;
+    const scroller = scrollerRef.current;
+    if (!drawer || !scroller || !drawer.open) return;
+
+    scroller.scrollTo({ left: 0, behavior: "auto" });
+  }, []);
+
+  // Sinkronisasi IntersectionObserver, klik backdrop, Escape (`cancel`), dan fallback backdrop scroll
+  useEffect(() => {
+    const drawer = drawerRef.current;
+    const scroller = scrollerRef.current;
+    const sheet = sheetRef.current;
+    if (!drawer || !scroller || !sheet) return;
+
+    const visibleThreshold = Math.min(0.05, 1 / Math.max(window.innerWidth, 320));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const latest = entries.at(-1);
+        if (!latest || !drawer.open) return;
+
+        if (latest.intersectionRatio < visibleThreshold) {
+          drawer.close("");
+          setDrawerOpen(false);
+        } else if (latest.intersectionRatio >= 0.99) {
+          setDrawerOpen(true);
         }
-      } catch {
-        // Abaikan jika popover sudah tertutup
+      },
+      { root: drawer, threshold: [visibleThreshold, 0.99] }
+    );
+    observer.observe(sheet);
+
+    const handleClickBackdrop = (event: MouseEvent) => {
+      if (!sheet.contains(event.target as Node)) {
+        closeDrawer();
       }
+    };
+
+    const handleCancel = (event: Event) => {
+      if (event.cancelable) {
+        event.preventDefault();
+        closeDrawer();
+      } else {
+        setDrawerOpen(false);
+      }
+    };
+
+    const handleClose = () => {
+      drawer.returnValue = "";
+      setDrawerOpen(false);
+    };
+
+    drawer.addEventListener("click", handleClickBackdrop);
+    drawer.addEventListener("cancel", handleCancel);
+    drawer.addEventListener("close", handleClose);
+
+    // Fallback fade backdrop untuk browser tanpa scroll-driven animation-timeline
+    let cleanupScrollFallback: (() => void) | undefined;
+    if (!CSS.supports("animation-timeline: scroll()")) {
+      const handleScroll = () => {
+        const maxScroll = Math.max(sheet.offsetWidth, 1);
+        const ratio = Math.min(1, Math.max(0, scroller.scrollLeft / maxScroll));
+        drawer.style.setProperty("--drawer-backdrop", String(ratio));
+      };
+      scroller.addEventListener("scroll", handleScroll, { passive: true });
+      cleanupScrollFallback = () => {
+        scroller.removeEventListener("scroll", handleScroll);
+      };
     }
-  };
+
+    return () => {
+      observer.disconnect();
+      drawer.removeEventListener("click", handleClickBackdrop);
+      drawer.removeEventListener("cancel", handleCancel);
+      drawer.removeEventListener("close", handleClose);
+      cleanupScrollFallback?.();
+    };
+  }, [closeDrawer]);
 
   const handleSignIn = async () => {
-    closeMobileMenu();
+    closeDrawer();
     const signedIn = await signIn();
     if (signedIn) {
       showToast({
@@ -57,7 +146,7 @@ export function AppHeader() {
   };
 
   const handleSignOut = async () => {
-    closeMobileMenu();
+    closeDrawer();
     await signOut();
     showToast({
       title: "Berhasil Keluar",
@@ -104,7 +193,7 @@ export function AppHeader() {
                   </span>
                   <button
                     type="button"
-                    className="wp-btn wp-btn-secondary"
+                    className="wp-btn wp-btn-danger"
                     onClick={handleSignOut}
                     aria-label="Keluar dari akun"
                   >
@@ -121,70 +210,113 @@ export function AppHeader() {
             ) : null}
           </div>
 
-          {/* Menu Popover Mobile */}
+          {/* Tombol Hamburger Mobile */}
           <div className="md:hidden">
             <button
               type="button"
-              popoverTarget={menuId}
-              popoverTargetAction="toggle"
-              aria-controls={menuId}
-              className="wp-btn wp-btn-secondary"
-              style={{ anchorName: "--mobile-nav-btn" } as CSSProperties}
+              onClick={openDrawer}
+              aria-label="Buka menu navigasi"
+              aria-expanded={drawerOpen}
+              aria-controls={drawerId}
+              className="wp-btn wp-btn-secondary !px-3"
             >
-              <Menu className="h-4 w-4" aria-hidden="true" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
               <span>Menu</span>
             </button>
 
-            <ul ref={menuRef} id={menuId} popover="auto" className="mobile-nav-menu">
-              {visibleNavItems.map(({ href, label, icon: Icon }) => {
-                const active = pathname === href || pathname.startsWith(`${href}/`);
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      aria-current={active ? "page" : undefined}
-                      onClick={closeMobileMenu}
-                      className={`wp-btn w-full justify-start ${
-                        active ? "wp-btn-primary" : "wp-btn-secondary"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      <span>{label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-
-              {!isLoading ? (
-                <li className="border-t border-border-subtle pt-2">
-                  {user ? (
-                    <div className="grid gap-2">
-                      <div className="flex min-h-11 items-center gap-2 rounded-xl border-2 border-border-ink bg-status-free-bg px-3 text-sm font-semibold text-status-free-text">
-                        <UserCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span className="truncate">{user.displayName}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="wp-btn wp-btn-secondary w-full justify-start"
-                        onClick={handleSignOut}
-                      >
-                        <LogOut className="h-4 w-4" aria-hidden="true" />
-                        <span>Keluar</span>
-                      </button>
-                    </div>
-                  ) : (
+            {/* Mobile Navigation Drawer (<dialog> + Scroll-Snap Swipe-to-Dismiss) */}
+            <dialog ref={drawerRef} id={drawerId} aria-label="Menu navigasi" className="wp-drawer">
+              <div ref={scrollerRef} className="wp-drawer-scroller">
+                <aside ref={sheetRef} className="wp-drawer-sheet">
+                  {/* Header Drawer */}
+                  <div className="flex items-center justify-between gap-3 border-b-2 border-border-ink px-4 pb-3">
+                    <JadwalinLogo size="sm" showWordmark />
                     <button
                       type="button"
-                      className="wp-btn wp-btn-primary w-full justify-start"
-                      onClick={handleSignIn}
+                      autoFocus
+                      onClick={closeDrawer}
+                      aria-label="Tutup menu"
+                      className="wp-btn wp-btn-secondary !min-h-11 !min-w-11 !px-2.5"
                     >
-                      <LogIn className="h-4 w-4" aria-hidden="true" />
-                      <span>Masuk dengan Google</span>
+                      <X className="h-5 w-5" aria-hidden="true" />
                     </button>
-                  )}
-                </li>
-              ) : null}
-            </ul>
+                  </div>
+
+                  {/* Info Akun (jika sudah login) */}
+                  {!isLoading && user ? (
+                    <div className="border-b border-border-subtle bg-status-free-bg/65 px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border-2 border-border-ink bg-status-free text-status-free-text shadow-[2px_2px_0_var(--border-ink)]"
+                        >
+                          <UserCheck className="h-5 w-5" />
+                        </span>
+                        <div className="grid min-w-0">
+                          <span className="truncate text-sm font-extrabold text-text-primary">
+                            {user.displayName}
+                          </span>
+                          {user.email ? (
+                            <span className="truncate text-xs font-medium text-text-secondary">
+                              {user.email}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Daftar Menu Bersih (Tanpa Nested Box Berlebihan) */}
+                  <ul className="grid gap-1.5 px-3 py-4">
+                    {visibleNavItems.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href || pathname.startsWith(`${href}/`);
+                      return (
+                        <li key={href}>
+                          <Link
+                            href={href}
+                            aria-current={active ? "page" : undefined}
+                            onClick={closeDrawer}
+                            className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3.5 text-sm font-bold transition-colors ${
+                              active
+                                ? "border-2 border-border-ink bg-brand text-white shadow-[2px_2px_0_var(--border-ink)]"
+                                : "border-2 border-transparent text-text-primary hover:bg-surface-muted"
+                            }`}
+                          >
+                            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                            <span>{label}</span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {/* Footer Aksi Akun (Pinned di Bawah, Jangkauan Ibu Jari) */}
+                  {!isLoading ? (
+                    <div className="mt-auto border-t-2 border-border-subtle px-4 pt-3.5">
+                      {user ? (
+                        <button
+                          type="button"
+                          onClick={handleSignOut}
+                          className="wp-btn wp-btn-danger w-full !min-h-12"
+                        >
+                          <LogOut className="h-4 w-4" aria-hidden="true" />
+                          <span>Keluar dari Akun</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSignIn}
+                          className="wp-btn wp-btn-primary w-full !min-h-12"
+                        >
+                          <LogIn className="h-4 w-4" aria-hidden="true" />
+                          <span>Masuk dengan Google</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+                </aside>
+              </div>
+            </dialog>
           </div>
         </nav>
       </div>

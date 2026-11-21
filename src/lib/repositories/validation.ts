@@ -88,8 +88,11 @@ export function validateCreateEventInput(input: CreateEventInput): NormalizedCre
   }
 
   const description = (input.description ?? "").trim();
-  if (description.length > 300) {
-    throw new RepositoryError("VALIDATION_ERROR", "Catatan jadwal maksimal 300 karakter.");
+  if (description.length < 3 || description.length > 300) {
+    throw new RepositoryError(
+      "VALIDATION_ERROR",
+      "Deskripsi jadwal wajib diisi (3 hingga 300 karakter)."
+    );
   }
 
   const hostName = input.hostName.trim().replace(/\s+/g, " ");
@@ -203,7 +206,7 @@ export async function assertParticipantAccess(
     if (!options.googleUid || options.googleUid !== participant.googleUid) {
       throw new RepositoryError(
         "GOOGLE_ACCOUNT_MISMATCH",
-        "Jadwal peserta ini terikat ke akun Google pemiliknya."
+        "Jadwal ini dilindungi pemiliknya. Masuk dengan akun yang sesuai untuk mengubahnya."
       );
     }
     return;
@@ -268,6 +271,13 @@ export async function prepareExistingParticipantUpdate(
     forceFilled?: boolean;
   }
 ): Promise<Participant> {
+  if (event.status === "closed") {
+    throw new RepositoryError(
+      "ROOM_CLOSED",
+      "Room jadwal ini sudah ditutup sehingga tidak bisa diubah lagi."
+    );
+  }
+
   await assertParticipantAccess(existing, {
     eventId: event.id,
     googleUid: options.googleUid,
@@ -319,6 +329,13 @@ export async function prepareNewWalkInParticipant(
     availabilities?: AvailabilityMap;
   }
 ): Promise<Participant> {
+  if (event.status === "closed") {
+    throw new RepositoryError(
+      "ROOM_CLOSED",
+      "Room jadwal ini sudah ditutup sehingga tidak menerima peserta baru."
+    );
+  }
+
   const { name, normalizedName } = validateParticipantDisplayName(options.name);
   const duplicate = existingParticipants.some(
     (participant) => participant.normalizedName === normalizedName

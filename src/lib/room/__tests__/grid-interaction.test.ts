@@ -8,6 +8,7 @@ import {
   computeDisplayHeatLevel,
   computeTeammateSlotHints,
   countAvailabilityStats,
+  filterQualifiedBestWindows,
   pickSpatialNavigationTarget,
   resolveAutoSessionParticipant,
   resolveStrokeBrush,
@@ -142,6 +143,7 @@ describe("grid-interaction helpers", () => {
     const repo = createLocalMockScheduleRepository({ storage: null });
     const created = await repo.createEvent({
       title: "Rapat Proyek Akhir",
+      description: "Bahas revisi bab 3 dan demo",
       dateMode: "specific_dates",
       dates: ["2026-11-23", "2026-11-24"],
       startHour: 18,
@@ -250,5 +252,64 @@ describe("grid-interaction helpers", () => {
     expect(computeDisplayHeatLevel(2, 2, 3)).toBe(3);
     // 3 dari 3 anggota bisa = 1.0 -> level 4 (semua bisa!)
     expect(computeDisplayHeatLevel(3, 3, 3)).toBe(4);
+  });
+
+  it("menyaring opsi rekomendasi alternatif agar hanya menyertakan jam dengan minimal 50% dan >= 2 orang", () => {
+    const baseWindow = {
+      columnKey: "2026-11-24",
+      slotKeys: ["2026-11-24T18:00"],
+      slotCount: 2,
+      durationMinutes: 60,
+      tentativeCount: 0,
+      unavailableCount: 0,
+      tentativeNames: [],
+      unavailableNames: [],
+      pendingNames: [],
+      rawScore: 3,
+      ratio: 1,
+      isUnanimousFree: false,
+      isTentativeOnly: false,
+    };
+
+    const windows = [
+      {
+        ...baseWindow,
+        id: "w-3of3",
+        startTime: "18:00",
+        endTime: "20:00",
+        freeCount: 3,
+        freeNames: ["A", "B", "C"],
+        isUnanimousFree: true,
+      },
+      {
+        ...baseWindow,
+        id: "w-2of3",
+        startTime: "14:00",
+        endTime: "15:00",
+        freeCount: 2,
+        freeNames: ["A", "B"],
+      },
+      {
+        ...baseWindow,
+        id: "w-1of3",
+        startTime: "16:00",
+        endTime: "18:00",
+        freeCount: 1,
+        freeNames: ["A"],
+      },
+    ];
+
+    // 3/3 (terbaik) + 2/3 (67% >= 50%) dipertahankan; 1/3 (33%) dibuang
+    expect(filterQualifiedBestWindows(windows, 3).map((w) => w.id)).toEqual(["w-3of3", "w-2of3"]);
+
+    // Bila hanya 3/3 dan 1/3, opsi 1/3 tidak ditawarkan
+    expect(filterQualifiedBestWindows([windows[0], windows[2]], 3).map((w) => w.id)).toEqual([
+      "w-3of3",
+    ]);
+
+    // Untuk 2 orang total, opsi alternatif 1/2 (hanya 1 orang) tetap dibuang
+    expect(filterQualifiedBestWindows([windows[1], windows[2]], 2).map((w) => w.id)).toEqual([
+      "w-2of3",
+    ]);
   });
 });

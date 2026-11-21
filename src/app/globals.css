@@ -93,7 +93,7 @@
   html {
     color-scheme: light;
     scroll-padding-top: 5rem;
-    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px));
   }
 
   body {
@@ -583,6 +583,82 @@
   .toast-close-btn:hover:not(:disabled) {
     background-color: var(--surface-muted);
     color: var(--text-primary);
+  }
+
+  /* Pola Arsir Diagonal untuk Status Diusahakan (50:50) */
+  .wp-tentative-pattern {
+    background-color: var(--status-tentative-bg);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0,
+      transparent 6px,
+      var(--status-tentative-stripe) 6px,
+      var(--status-tentative-stripe) 11px
+    );
+  }
+
+  /* Containment Kolom Grid untuk Menjaga 60FPS saat Drag-Paint */
+  .wp-grid-col {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 76px auto 640px;
+  }
+
+  @supports not (content-visibility: auto) {
+    .wp-grid-col {
+      contain: layout style paint;
+    }
+  }
+
+  /* Safe Scroll Zone di Kolom Label Jam (Mobile-First) */
+  .wp-safe-scroll-zone {
+    touch-action: pan-y;
+    user-select: none;
+  }
+
+  .wp-paint-surface {
+    touch-action: none;
+    user-select: none;
+  }
+
+  /* Level Intensitas Heatmap 0..4 (Kontras Tinggi) */
+  .wp-heat-0 {
+    background-color: var(--surface-card);
+    color: var(--text-muted);
+  }
+
+  .wp-heat-1 {
+    background-color: #d1fae5;
+    color: #065f46;
+  }
+
+  .wp-heat-2 {
+    background-color: #6ee7b7;
+    color: #064e3b;
+  }
+
+  .wp-heat-3 {
+    background-color: #34d399;
+    color: #052e16;
+  }
+
+  .wp-heat-4 {
+    background-color: #10b981;
+    color: #052e16;
+  }
+
+  /* Bottom Floating Paint Mode Bar dengan Safe-Area Insets */
+  .wp-paint-bar {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 45;
+    padding-block-start: 0.625rem;
+    padding-block-end: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
+    background-color: color-mix(in srgb, var(--surface-canvas) 94%, transparent);
+    backdrop-filter: blur(8px);
+    border-block-start: 2px solid var(--border-ink);
   }
 
   /* Popover Navigasi Mobile */

@@ -51,6 +51,42 @@
   --duration-fast: 140ms;
   --duration-base: 220ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.22, 1.12, 0.36, 1);
+  --ease-word-pop: cubic-bezier(0.22, 1.15, 0.36, 1);
+}
+
+@supports (animation-timing-function: linear(0, 1)) {
+  :root {
+    --ease-pop: linear(
+      0,
+      0.009,
+      0.035 2.1%,
+      0.141,
+      0.281 6.7%,
+      0.723 12.9%,
+      0.938 16.7%,
+      1.017,
+      1.077,
+      1.121,
+      1.149 24.3%,
+      1.159,
+      1.163,
+      1.161,
+      1.154 29.9%,
+      1.129 32.8%,
+      1.051 39.6%,
+      1.017 43.1%,
+      0.991,
+      0.977 51%,
+      0.974 53.8%,
+      0.975 57.1%,
+      0.997 69.8%,
+      1.003 76.9%,
+      1.004 83.8%,
+      1
+    );
+  }
 }
 
 @media (pointer: coarse) {
@@ -151,6 +187,11 @@
     background-color: var(--surface-muted);
     border: 2px solid var(--border-ink);
     border-radius: var(--radius-lg);
+  }
+
+  /* Container Query wrapper untuk kartu fitur responsif */
+  .wp-size-container {
+    container-type: inline-size;
   }
 
   .wp-btn {
@@ -910,6 +951,292 @@
     dialog.wp-dialog[open] {
       border: 1px solid CanvasText;
     }
+  }
+
+  /* Tactile & Playful Motion System (Opt-in prefers-reduced-motion: no-preference) */
+  @media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+      navigation: auto;
+    }
+
+    @keyframes wp-enter-fade {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes wp-enter-pop-space {
+      from {
+        translate: var(--enter-x, 0px) 18px;
+        scale: 0.86;
+      }
+      to {
+        translate: 0 0;
+        scale: 1;
+      }
+    }
+
+    @keyframes wp-enter-up-space {
+      from {
+        translate: var(--enter-x, 0px) 16px;
+      }
+      to {
+        translate: 0 0;
+      }
+    }
+
+    @keyframes wp-enter-word-space {
+      from {
+        translate: 0 11px;
+      }
+      to {
+        translate: 0 0;
+      }
+    }
+
+    @keyframes wp-enter-word-pop-space {
+      from {
+        translate: 0 11px;
+        scale: 0.9;
+      }
+      to {
+        translate: 0 0;
+        scale: 1;
+      }
+    }
+
+    @keyframes wp-bar-grow {
+      from {
+        scale: 0 1;
+      }
+      to {
+        scale: 1 1;
+      }
+    }
+
+    .enter-pop {
+      animation:
+        wp-enter-fade 380ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-pop-space 600ms var(--ease-pop) var(--enter-delay, 0ms) backwards;
+    }
+
+    .enter-up {
+      animation:
+        wp-enter-fade 360ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-up-space 520ms var(--ease-smooth) var(--enter-delay, 0ms) backwards;
+    }
+
+    .enter-fade {
+      animation: wp-enter-fade 480ms ease-out var(--enter-delay, 0ms) backwards;
+    }
+
+    .enter-word {
+      display: inline-block;
+      animation:
+        wp-enter-fade 320ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-word-space 420ms var(--ease-smooth) var(--enter-delay, 0ms) backwards;
+    }
+
+    .enter-word-pop {
+      display: inline-block;
+      animation:
+        wp-enter-fade 340ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-word-pop-space 480ms var(--ease-pop) var(--enter-delay, 0ms) backwards;
+    }
+
+    .enter-bar {
+      transform-origin: left center;
+      animation: wp-bar-grow 720ms var(--ease-smooth) var(--enter-delay, 0ms) backwards;
+    }
+
+    /* Seksi below-the-fold: tertahan hingga masuk viewport, lalu masuk berurutan */
+    section[data-reveal-state="pending"] .reveal-pop,
+    section[data-reveal-state="pending"] .reveal-up,
+    section[data-reveal-state="pending"] .reveal-fade {
+      opacity: 0;
+    }
+
+    section[data-reveal-state="pending"] .reveal-bar {
+      scale: 0 1;
+    }
+
+    section:not([data-reveal-state="pending"]) .reveal-pop {
+      animation:
+        wp-enter-fade 380ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-pop-space 600ms var(--ease-pop) var(--enter-delay, 0ms) backwards;
+    }
+
+    section:not([data-reveal-state="pending"]) .reveal-up {
+      animation:
+        wp-enter-fade 360ms ease-out var(--enter-delay, 0ms) backwards,
+        wp-enter-up-space 520ms var(--ease-smooth) var(--enter-delay, 0ms) backwards;
+    }
+
+    section:not([data-reveal-state="pending"]) .reveal-fade {
+      animation: wp-enter-fade 480ms ease-out var(--enter-delay, 0ms) backwards;
+    }
+
+    section:not([data-reveal-state="pending"]) .reveal-bar {
+      transform-origin: left center;
+      animation: wp-bar-grow 720ms var(--ease-smooth) var(--enter-delay, 0ms) backwards;
+    }
+
+    /* Stagger otomatis untuk elemen bersaudara dengan fallback --sibling-index */
+    .wp-stagger-list > * {
+      animation-delay: calc(
+        var(--stagger-base, 0ms) + (var(--sibling-index, 1) - 1) * var(--stagger-step, 110ms)
+      );
+    }
+
+    @supports (animation-delay: calc(sibling-index() * 0.1s)) {
+      .wp-stagger-list > * {
+        animation-delay: calc(
+          var(--stagger-base, 0ms) + (sibling-index() - 1) * var(--stagger-step, 110ms)
+        );
+      }
+    }
+
+    /* Micro-interactions tactile pada kartu & slot simulasi */
+    .wp-tactile-card {
+      transition:
+        translate 260ms var(--ease-pop),
+        box-shadow 220ms var(--ease-smooth),
+        border-color 180ms ease-out;
+    }
+
+    .wp-tactile-card:hover,
+    .wp-tactile-card:focus-within {
+      translate: -2px -3px;
+      box-shadow: 6px 6px 0 var(--border-ink);
+    }
+
+    .wp-tactile-badge {
+      transition:
+        translate 260ms var(--ease-pop),
+        scale 260ms var(--ease-pop),
+        rotate 260ms var(--ease-pop);
+    }
+
+    .wp-tactile-card:hover .wp-tactile-badge,
+    .wp-tactile-card:focus-within .wp-tactile-badge {
+      translate: 0 -1px;
+      scale: 1.05;
+      rotate: -2deg;
+    }
+
+    .wp-slot-demo {
+      transition:
+        translate 220ms var(--ease-pop),
+        scale 220ms var(--ease-pop),
+        background-color 150ms ease-out,
+        border-color 150ms ease-out,
+        box-shadow 150ms ease-out;
+    }
+
+    .wp-slot-demo:hover {
+      translate: -1px -1px;
+      box-shadow: 2px 2px 0 var(--border-ink);
+    }
+
+    .wp-slot-demo:active {
+      translate: 0 1px;
+      scale: 0.96;
+    }
+
+    details.wp-faq-item > summary::before {
+      transition: rotate 220ms var(--ease-pop);
+    }
+
+    details.wp-faq-item::details-content {
+      transition: block-size, content-visibility, display;
+      transition-duration: 280ms;
+      transition-timing-function: var(--ease-smooth);
+      transition-behavior: allow-discrete;
+    }
+  }
+
+  /* FAQ Accordion — Native <details> + ::details-content (Baseline + Progressive Enhancement) */
+  details.wp-faq-item {
+    background-color: var(--surface-card);
+    border: 2px solid var(--border-ink);
+    border-radius: var(--radius-xl);
+    box-shadow: 4px 4px 0 var(--border-ink);
+    transition:
+      translate 220ms var(--ease-smooth),
+      box-shadow 220ms var(--ease-smooth),
+      background-color 180ms ease-out;
+  }
+
+  details.wp-faq-item:hover,
+  details.wp-faq-item:focus-within {
+    translate: -1px -2px;
+    box-shadow: 5px 5px 0 var(--border-ink);
+  }
+
+  details.wp-faq-item[open] {
+    background-color: #fffef9;
+  }
+
+  details.wp-faq-item > summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-block-size: 3.5rem;
+    padding-block: 1rem;
+    padding-inline: 1.25rem;
+    cursor: pointer;
+    font-weight: 800;
+    color: var(--text-primary);
+    user-select: none;
+  }
+
+  details.wp-faq-item > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details.wp-faq-item > summary::before {
+    content: "";
+    inline-size: 1.15rem;
+    block-size: 1.15rem;
+    flex-shrink: 0;
+    background-color: var(--brand-600);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      no-repeat center / contain;
+    rotate: -90deg;
+  }
+
+  details.wp-faq-item[open] > summary::before {
+    rotate: 0deg;
+  }
+
+  details.wp-faq-item > summary:focus-visible {
+    outline: 2px solid var(--brand-600);
+    outline-offset: -3px;
+    border-radius: calc(var(--radius-xl) - 2px);
+  }
+
+  details.wp-faq-item::details-content {
+    interpolate-size: allow-keywords;
+    overflow: clip;
+    contain: layout;
+  }
+
+  details.wp-faq-item:not([open])::details-content {
+    block-size: 0;
+  }
+
+  .wp-faq-answer {
+    padding-block-start: 0.125rem;
+    padding-block-end: 1.125rem;
+    padding-inline-start: 3.15rem;
+    padding-inline-end: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
   }
 }
 

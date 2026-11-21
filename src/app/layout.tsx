@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { AppHeader } from "@/components/layout/app-header";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { ToastProvider } from "@/components/ui/toast-provider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -38,7 +41,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${plusJakartaSans.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-dvh flex flex-col bg-background text-foreground font-sans">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <Suspense
+              fallback={
+                <div
+                  className="h-16 border-b-2 border-border-ink bg-surface-card"
+                  aria-hidden="true"
+                />
+              }
+            >
+              <AppHeader />
+            </Suspense>
+            <main className="flex-1">{children}</main>
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

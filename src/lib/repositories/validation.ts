@@ -29,7 +29,7 @@ export interface NormalizedCreateEventInput {
   startHour: number;
   endHour: number;
   timezone: string;
-  hostUid: string | null;
+  hostUid: string;
   hostName: string;
   rosterNames: string[];
 }
@@ -124,7 +124,13 @@ export function validateCreateEventInput(input: CreateEventInput): NormalizedCre
   }
 
   const timezone = input.timezone.trim() || "Asia/Jakarta";
-  const hostUid = input.hostUid ? input.hostUid.trim() || null : null;
+  const hostUid = typeof input.hostUid === "string" ? input.hostUid.trim() : "";
+  if (!hostUid) {
+    throw new RepositoryError(
+      "AUTH_REQUIRED",
+      "Masuk dengan akun Google terlebih dahulu untuk membuat room jadwal."
+    );
+  }
   const rosterNames = normalizeRosterNames(input.rosterNames);
 
   return {

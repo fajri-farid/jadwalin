@@ -103,22 +103,27 @@ export function clearLocalMockDatabase(storage?: StorageLike | null): void {
 }
 
 export class LocalMockScheduleRepository implements ScheduleRepository {
-  private readonly storage: StorageLike | null;
+  private readonly explicitStorage: StorageLike | null | undefined;
   private state: MockDatabaseState;
   private readonly listeners = new Map<string, Set<ParticipantsListener>>();
 
   constructor(options?: { storage?: StorageLike | null }) {
-    this.storage = resolveDefaultStorage(options?.storage);
+    this.explicitStorage = options?.storage;
     this.state = this.loadState();
   }
 
+  private getStorage(): StorageLike | null {
+    return resolveDefaultStorage(this.explicitStorage);
+  }
+
   private loadState(): MockDatabaseState {
-    if (!this.storage) {
+    const storage = this.getStorage();
+    if (!storage) {
       return createEmptyState();
     }
 
     try {
-      const raw = this.storage.getItem(LOCAL_MOCK_DB_STORAGE_KEY);
+      const raw = storage.getItem(LOCAL_MOCK_DB_STORAGE_KEY);
       if (!raw) return createEmptyState();
 
       const parsed: unknown = JSON.parse(raw);
@@ -149,14 +154,16 @@ export class LocalMockScheduleRepository implements ScheduleRepository {
   }
 
   private syncFromStorage(): void {
-    if (!this.storage) return;
+    const storage = this.getStorage();
+    if (!storage) return;
     this.state = this.loadState();
   }
 
   private persistState(): void {
-    if (!this.storage) return;
+    const storage = this.getStorage();
+    if (!storage) return;
     try {
-      this.storage.setItem(LOCAL_MOCK_DB_STORAGE_KEY, JSON.stringify(this.state));
+      storage.setItem(LOCAL_MOCK_DB_STORAGE_KEY, JSON.stringify(this.state));
     } catch {
       // Abaikan quota error pada storage mock lokal
     }

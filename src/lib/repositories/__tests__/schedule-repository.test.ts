@@ -31,9 +31,16 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 8,
       endHour: 20,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-host-andi",
       hostName: "Andi",
       rosterNames: ["Budi", "  budi ", "Andi", "Citra", ""],
       roomCodeGenerator: () => "482910",
+    });
+
+    const hostProfile = await repo.getUserProfile("uid-host-andi");
+    expect(hostProfile?.recentEventSlugs[0]).toMatchObject({
+      eventId: created.event.id,
+      role: "host",
     });
 
     expect(created.event.roomCode).toBe("482910");
@@ -54,6 +61,23 @@ describe("LocalMockScheduleRepository", () => {
     expect(bySlug?.id).toBe(created.event.id);
   });
 
+  it("menolak pembuatan room bila hostUid kosong (AUTH_REQUIRED)", async () => {
+    const repo = createLocalMockScheduleRepository({ storage: null });
+
+    await expect(
+      repo.createEvent({
+        title: "Room Tanpa Login",
+        dateMode: "days_of_week",
+        dates: ["MON"],
+        startHour: 9,
+        endHour: 17,
+        timezone: "Asia/Jakarta",
+        hostUid: "   ",
+        hostName: "Anonim",
+      })
+    ).rejects.toMatchObject({ code: "AUTH_REQUIRED" } satisfies Partial<RepositoryError>);
+  });
+
   it("melakukan retry otomatis saat kode 6 digit bentrok dan gagal setelah 10 bentrokan", async () => {
     const repo = createLocalMockScheduleRepository({ storage: null });
 
@@ -64,6 +88,7 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 9,
       endHour: 17,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-host",
       hostName: "Host",
       roomCodeGenerator: () => "111222",
     });
@@ -75,6 +100,7 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 9,
       endHour: 17,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-host",
       hostName: "Host",
       roomCodeGenerator: (attempt) => (attempt === 0 ? "111222" : "333444"),
     });
@@ -88,6 +114,7 @@ describe("LocalMockScheduleRepository", () => {
         startHour: 9,
         endHour: 17,
         timezone: "Asia/Jakarta",
+        hostUid: "uid-host",
         hostName: "Host",
         roomCodeGenerator: () => "111222",
       })
@@ -103,6 +130,7 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 10,
       endHour: 14,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-andi",
       hostName: "Andi",
       rosterNames: ["Budi"],
     });
@@ -174,6 +202,7 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 8,
       endHour: 12,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-citra",
       hostName: "Citra",
       rosterNames: ["Dewi"],
     });
@@ -215,6 +244,7 @@ describe("LocalMockScheduleRepository", () => {
       startHour: 13,
       endHour: 18,
       timezone: "Asia/Jakarta",
+      hostUid: "uid-host",
       hostName: "Host",
       rosterNames: ["Fajar", "Gita", "Hana"],
     });

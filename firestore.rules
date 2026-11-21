@@ -17,7 +17,8 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if true;
 
-      allow create: if request.resource.data.keys().hasAll([
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll([
           'id',
           'slug',
           'roomCode',
@@ -60,10 +61,8 @@ service cloud.firestore {
         && request.resource.data.hostName.size() >= 1
         && request.resource.data.hostName.size() <= 50
         && request.resource.data.createdAt is int
-        && (
-          request.resource.data.hostUid == null
-          || (isSignedIn() && request.resource.data.hostUid == request.auth.uid)
-        );
+        && request.resource.data.hostUid is string
+        && request.resource.data.hostUid == request.auth.uid;
 
       allow update: if isSignedIn()
         && resource.data.hostUid != null
@@ -159,7 +158,8 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
 
-      allow create: if isValidRoomCodeFormat(code)
+      allow create: if isSignedIn()
+        && isValidRoomCodeFormat(code)
         && request.resource.data.keys().hasAll(['code', 'eventId', 'slug', 'createdAt'])
         && request.resource.data.code == code
         && request.resource.data.eventId is string

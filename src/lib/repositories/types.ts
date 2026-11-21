@@ -9,6 +9,7 @@ import type {
 } from "@/types/schedule";
 
 export type RepositoryErrorCode =
+  | "AUTH_REQUIRED"
   | "ROOM_NOT_FOUND"
   | "INVALID_ROOM_CODE"
   | "ROOM_CODE_COLLISION"
@@ -40,7 +41,7 @@ export interface CreateEventInput {
   startHour: number;
   endHour: number;
   timezone: string;
-  hostUid?: string | null;
+  hostUid: string;
   hostName: string;
   rosterNames?: string[];
   /** Dipakai di pengujian deterministik untuk memverifikasi penanganan bentrok kode 6 digit. */

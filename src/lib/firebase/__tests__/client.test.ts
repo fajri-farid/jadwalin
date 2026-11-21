@@ -16,8 +16,6 @@ describe("Firebase Client Config & Mode Detection", () => {
         apiKey: "",
         authDomain: "jadwalin.firebaseapp.com",
         projectId: "jadwalin-id",
-        storageBucket: "jadwalin-id.appspot.com",
-        messagingSenderId: "123456",
         appId: "1:123456:web:abc",
       })
     ).toBe(false);
@@ -27,21 +25,17 @@ describe("Firebase Client Config & Mode Detection", () => {
         apiKey: "   ",
         authDomain: "jadwalin.firebaseapp.com",
         projectId: "jadwalin-id",
-        storageBucket: "jadwalin-id.appspot.com",
-        messagingSenderId: "123456",
         appId: "1:123456:web:abc",
       })
     ).toBe(false);
   });
 
-  it("menganggap configured saat keenam field publik Firebase terisi", () => {
+  it("menganggap configured cukup dengan 4 field wajib Firebase (Auth & Firestore)", () => {
     expect(
       isFirebaseConfigured({
         apiKey: "AIza-public-key",
         authDomain: "jadwalin.firebaseapp.com",
         projectId: "jadwalin-id",
-        storageBucket: "jadwalin-id.appspot.com",
-        messagingSenderId: "123456",
         appId: "1:123456:web:abc",
       })
     ).toBe(true);

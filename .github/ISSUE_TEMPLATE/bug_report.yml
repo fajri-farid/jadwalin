@@ -1,0 +1,41 @@
+name: Laporan Bug
+description: Laporkan masalah atau perilaku aneh yang Anda temukan di Jadwalin.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Terima kasih sudah membantu melaporkan masalah di Jadwalin!
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Ringkasan Masalah
+      description: Jelaskan secara singkat apa yang terjadi vs apa yang seharusnya terjadi.
+      placeholder: Saat menekan tombol ... di layar HP, yang terjadi adalah ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah Reproduksi
+      description: Bagaimana cara memicu masalah ini?
+      placeholder: |
+        1. Buka halaman `/...`
+        2. Ketuk tombol ...
+        3. Muncul error ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Lingkungan / Perangkat
+      options:
+        - Mobile Browser (Android / iOS)
+        - Desktop Browser
+        - Lokal (Mode Mock)
+        - Lokal / Produksi (Firebase Live)
+    validations:
+      required: true

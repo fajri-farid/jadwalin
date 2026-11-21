@@ -1,0 +1,25 @@
+name: Usulan Fitur
+description: Usulkan peningkatan UX, fitur penjadwalan, atau ide baru untuk Jadwalin.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Punya ide biar cari jadwal bareng makin cepat? Ceritakan di bawah!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Masalah yang Ingin Diselesaikan
+      description: Situasi kelompok atau hambatan pengguna apa yang ingin dibantu?
+      placeholder: Ketika teman satu tim ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Usulan Solusi
+      description: Jelaskan perilaku atau tampilan yang Anda bayangkan.
+    validations:
+      required: true

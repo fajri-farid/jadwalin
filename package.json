@@ -1,7 +1,19 @@
 {
   "name": "jadwalin",
   "version": "0.1.0",
+  "description": "Platform open-source mobile-first untuk mencari irisan waktu luang kelompok secara real-time tanpa ribet di grup chat.",
+  "license": "MIT",
   "private": true,
+  "keywords": [
+    "scheduling",
+    "when2meet",
+    "nextjs",
+    "tailwindcss",
+    "firebase",
+    "firestore",
+    "open-source",
+    "indonesia"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
